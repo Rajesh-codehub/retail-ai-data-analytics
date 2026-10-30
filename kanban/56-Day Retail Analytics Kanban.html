@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>56-Day Retail Analytics Kanban</title>
+<style>
+:root{--bg:#f6f6f3;--panel:#ecebe6;--card:#fff;--text:#1d1d1b;--mute:#6b6a64;--line:#d9d8d1;--acc:#2f6fed;--C:#c2362b;--H:#c77a0a;--M:#2b7a4b;--ok:#2b7a4b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#212120;--card:#2b2b29;--text:#ecebe6;--mute:#9b9a92;--line:#3a3a37;--acc:#6b9bff;--C:#ff7a6e;--H:#f0b04d;--M:#5fc08a;--ok:#5fc08a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--panel:#212120;--card:#2b2b29;--text:#ecebe6;--mute:#9b9a92;--line:#3a3a37;--acc:#6b9bff;--C:#ff7a6e;--H:#f0b04d;--M:#5fc08a;--ok:#5fc08a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:16px 16px 8px;max-width:1500px;margin:auto}
+h1{margin:0 0 4px;font-size:20px}
+.sub{color:var(--mute);font-size:13px}
+.bar{height:10px;background:var(--panel);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+.bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute)}
+.stats b{color:var(--text)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0;align-items:center}
+select,button{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+.board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:10px;padding:8px 16px 24px;max-width:1500px;margin:auto;overflow-x:auto}
+.col{background:var(--panel);border-radius:10px;padding:8px;min-height:200px}
+.col.over{outline:2px dashed var(--acc)}
+.col h2{font-size:13px;margin:2px 4px 8px;display:flex;justify-content:space-between;text-transform:uppercase;letter-spacing:.04em}
+.col h2 span{color:var(--mute);font-weight:400}
+.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:grab}
+.card.C{border-left-color:var(--C)}.card.H{border-left-color:var(--H)}.card.M{border-left-color:var(--M)}
+.top{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-bottom:3px}
+.sev{font-weight:600}.sev.C{color:var(--C)}.sev.H{color:var(--H)}.sev.M{color:var(--M)}
+.t{font-weight:600;font-size:13px}
+.d{color:var(--mute);font-size:12px;margin-top:2px}
+.mv{display:flex;gap:4px;margin-top:6px}
+.mv button{padding:2px 8px;font-size:12px}
+.done .t{text-decoration:line-through;color:var(--mute)}
+.wk{font-size:11px;color:var(--mute);margin:4px 2px 6px}
+.g{margin-top:6px;font-size:12px}.g summary{cursor:pointer;color:var(--acc)}.gb div{margin-top:5px}.gb b{color:var(--mute)}
+@media(max-width:700px){.board{grid-template-columns:repeat(5,80vw)}}
+</style>
+</head>
+<body>
+<header>
+<h1>Retail Analytics Platform — 56-Day Kanban</h1>
+<div class="sub">Drag cards between columns, or use the arrow buttons. Progress saves in this browser.</div>
+<div class="bar"><i id="fill"></i></div>
+<div class="stats" id="stats"></div>
+<div class="tools">
+<select id="wf"></select>
+<select id="sf"><option value="">All severities</option><option value="C">Critical</option><option value="H">High</option><option value="M">Medium</option></select>
+<button id="reset">Reset board</button>
+</div>
+</header>
+<main class="board" id="board"></main>
+<script>
+var W=[
+["Week 1 — Project setup and database",[
+["Create Kanban board and repository","Git repo, board, README, labels, milestones, folders","C"],
+["Set up FastAPI application","Virtualenv, dependencies, entry point, settings, health endpoint","C"],
+["Configure PostgreSQL","Local DB, env vars, connection, SQLAlchemy session","C"],
+["Implement database migrations","Configure Alembic and the initial migration workflow","C"],
+["Create core database tables","Users, branches, categories, products, customers, transactions, sales","C"],
+["Create ingestion and inventory tables","Upload files, validation issues, load runs, inventory balances and movements","H"],
+["Add indexes and database tests","Indexes, FKs, constraints, seed data, connectivity and relationship tests","C"]]],
+["Week 2 — Authentication and authorization",[
+["Define authentication schemas","Pydantic schemas for login and user create, update, response","H"],
+["Implement password security","Hash and verify passwords; never store plaintext","C"],
+["Implement login and JWT","Login endpoint, token generation, expiry, auth dependencies","C"],
+["Implement user management","Create, list, view, update, deactivate users","H"],
+["Implement role permissions","Restrict admin, manager, employee per the access matrix","C"],
+["Implement branch-level access","Block cross-branch data unless the role permits it","C"],
+["Test authentication and permissions","Invalid credentials, expired tokens, roles, branch access","C"]]],
+["Week 3 — File ingestion and validation",[
+["Design upload workflow","Upload statuses, formats, size limits, dataset metadata","H"],
+["Implement CSV upload","Endpoint, validate type and size, save file safely","C"],
+["Implement Excel upload","openpyxl + Pandas; handle empty or unreadable files","H"],
+["Implement file preview","Columns, sample rows, row counts, detected types","H"],
+["Implement schema validation","Required columns, expected types, malformed values","C"],
+["Implement data-quality profiling","Nulls, duplicates, invalid quantities, negatives, bad dates","C"],
+["Implement validation report","Persist issues; endpoints for errors and upload status","C"]]],
+["Week 4 — Transformation and reliable loading",[
+["Design column mapping","Map source columns to SKU, branch, quantity, price, date","H"],
+["Implement basic transformations","Rename, type conversion, trimming, date normalization","H"],
+["Implement calculated columns","Limited validated calculations, e.g. quantity × unit price","M"],
+["Implement transformation preview","Transformed sample rows and errors before load confirmation","H"],
+["Implement reference-data resolution","Resolve branch, SKU, category; report unknowns, never guess","C"],
+["Implement database loading","Transactions, bulk operations, success and failure counts","C"],
+["Implement duplicate prevention and recovery","Business keys, unique constraints, idempotent upserts; test re-upload and partial failure","C"]]],
+["Week 5 — Analytics and reports",[
+["Define business metrics","Revenue, units, refunds, discounts, date and comparison rules","C"],
+["Implement sales summary API","Total sales and key metrics for a date range","C"],
+["Implement product and category analytics","Top-selling products, highest-revenue categories","H"],
+["Implement branch and time-trend analytics","Compare branches; sales trends over time","H"],
+["Implement inventory analytics","High-stock/low-sales items and stockout risks","H"],
+["Implement remaining business queries","Weekday trends, best sellers by branch, period comparisons","H"],
+["Test analytics correctness","Known datasets vs manually calculated expected values","C"]]],
+["Week 6 — AI retail analyst",[
+["Define AI question contract","Supported questions, filters, date ranges, response format, unsupported behavior","C"],
+["Integrate LLM provider","Env secrets, timeouts, safe error handling","H"],
+["Implement question classification","Map questions to the 10 intents and extract parameters","C"],
+["Build approved query templates","Each intent to a tested SQLAlchemy or parameterized SQL query","C"],
+["Implement safe query execution","Read-only DB role, authorized filters, limits, timeouts","C"],
+["Generate data-grounded explanations","Feed results and metric definitions to the LLM for a concise answer","H"],
+["Test the AI workflow","All 10 questions, invalid input, missing data, unauthorized, unsupported","C"]]],
+["Week 7 — Frontend integration",[
+["Set up React frontend","App, routing, API client, env config, base layout","H"],
+["Build login and navigation","Login page, token handling, protected routes, role-aware nav","C"],
+["Build upload interface","Select file, upload, show progress or status","C"],
+["Build preview and validation screens","Columns, sample records, errors, quality summaries","H"],
+["Build transformation and loading workflow","Mapping, transforms, preview, load confirmation, status","H"],
+["Build dashboard and reports","Revenue, trends, rankings, inventory insights","H"],
+["Build AI analyst interface","Question input, loading/error states, answer, supporting data; test full flow","C"]]],
+["Week 8 — Testing, deployment, portfolio",[
+["Complete backend unit tests","Validation, transformations, metrics, service logic","C"],
+["Complete integration tests","Auth, uploads, loading, duplicates, analytics, AI endpoints","C"],
+["Security and error-handling review","Uploads, secrets, permissions, SQL safety, error messages, logging","C"],
+["Dockerize the application","Docker for backend, frontend, and local PostgreSQL","H"],
+["Configure CI and deployment","Automated tests, deploy, secrets, DB connectivity","C"],
+["Add monitoring and documentation","Logs, health checks, setup and env docs, architecture diagrams","H"],
+["Final acceptance test and demo","Full workflow with sample data, fix blockers, demo steps, README limitations","C"]]]
+];
+var COLS=["Backlog","Ready","In Progress","In Review","Done"],SEV={C:"Critical",H:"High",M:"Medium"},KEY="retail-kanban-v1";
+var G=[
+"Create the repo with backend/, frontend/, docs/ and a .gitignore (exclude .env). Add labels (critical/high/medium), one milestone per week, and paste all 56 tasks as cards. Write a README stub with the project goal.||Repo is pushed, the board has 56 cards in Backlog, and Day 2 is in Ready.",
+"Create a venv, install fastapi, uvicorn, and pydantic-settings, and pin versions in requirements.txt. Use app/main.py, a config.py reading env vars, and GET /health. Split into routers/, models/, schemas/, services/ from the start.||uvicorn starts, /health returns 200, /docs loads, and settings come from .env.",
+"Run PostgreSQL locally (a Docker container is easiest). Put DATABASE_URL in .env, create the engine and SessionLocal in db.py, and add a get_db dependency that closes the session. Plan a separate test database.||A route using get_db runs SELECT 1 successfully and .env.example lists every variable.",
+"Install Alembic, init it, point env.py at your Base.metadata and DATABASE_URL, and enable compare_type. Generate a first revision and apply it. Never change the schema by hand afterward; always add a migration.||alembic upgrade head and downgrade base both work on an empty database.",
+"Define SQLAlchemy models with PKs, created_at/updated_at, and explicit foreign keys. Model sales as transaction header plus line items. Add role on users and branch_id for scoping. Decide money type now: Numeric(12,2), never float.||The migration applies cleanly and a note or diagram of table relationships is in docs/.",
+"Add upload_files (status, filename, size, uploaded_by), validation_issues (row, column, rule, message), load_runs (counts, timing), inventory_balances, and inventory_movements. Link issues and runs back to the upload.||The migration applies, and every ingestion table links to an upload and a user.",
+"Index columns used in filters and joins: branch_id, product_id, transaction_date, sku. Add unique constraints (branch code, SKU) and NOT NULL where required. Write a seed script and pytest tests for connectivity and relationships.||Tests pass on a fresh database, and seed data loads twice without errors or duplicates.",
+"Create UserCreate, UserUpdate, UserOut, LoginRequest, and Token schemas. Use EmailStr and enums for roles, and keep passwords out of every response model. Keep input and output schemas separate.||Schemas reject bad input (bad email, unknown role) and no output schema exposes a password hash.",
+"Use passlib[bcrypt] or argon2. Write hash_password and verify_password helpers in one module. Enforce a minimum password length. Never log passwords or hashes.||Unit tests show the hash differs from plaintext, verification works, and a wrong password fails.",
+"Use python-jose or PyJWT. Put sub, role, and exp in the token, load the secret from env, and keep expiry short (30–60 min). Build get_current_user with OAuth2PasswordBearer and reject inactive users.||Login returns a token, a protected route works with it, and returns 401 without it or after expiry.",
+"Implement CRUD under /users, with create and deactivate restricted to admins. Deactivate with is_active=false instead of deleting. Prevent duplicate emails and stop an admin from deactivating themselves.||All endpoints work, appear in /docs, and use correct status codes (201, 404, 409).",
+"Write the access matrix first (role × action) in docs/. Implement a require_roles dependency and apply it to routes instead of ad-hoc if checks. Default to deny.||Each role can do exactly what the matrix allows, verified by at least one test per role.",
+"Create a helper that adds a branch filter to every query based on the current user. Admins may see all branches; others only their own. Apply it in the service layer so no endpoint can forget it.||A user from branch A gets 403 or an empty result for branch B data on every data endpoint.",
+"Use pytest with TestClient and a test DB. Cover wrong password, missing, expired, and tampered tokens, each role on each protected route, and cross-branch access. Treat these as security regression tests.||The suite passes, and every Critical auth rule from Days 9–13 has a failing-case test.",
+"Write down the lifecycle: uploaded → validating → validated/failed → loaded. Decide allowed types (.csv, .xlsx), a max size (e.g. 10–20 MB), required columns, and the metadata to store. Document it in docs/.||A one-page upload spec exists and the statuses are an enum in code.",
+"Use UploadFile and read in chunks. Check extension and content type, enforce max size, generate a random server-side filename (never trust the client’s name), save outside any public folder, and create an upload record.||A valid CSV is saved and recorded; wrong type, empty, and oversized files are rejected with clear errors.",
+"Read with pandas.read_excel(engine=openpyxl). Let the user pick a sheet and handle empty, protected, or corrupted files with friendly errors. After reading into a DataFrame, reuse the CSV pipeline.||A multi-sheet .xlsx loads, and bad files return a 400 rather than a 500.",
+"Return columns, the first 10–20 rows, total row count, and inferred dtypes. Read only a sample (nrows) for large files and convert NaN to null for JSON.||The preview endpoint returns correct columns and types for both CSV and Excel.",
+"Define a column schema (required, type, allowed values). Validate by column first, then by row, and collect all errors instead of stopping at the first. Pandera or a hand-written rule list both work.||Missing columns and wrong types are reported precisely with row and column references.",
+"Implement rules as small functions: null checks, duplicate keys, quantity ≤ 0, negative price, future or unparseable dates. Keep rules configurable and record severity (error vs warning).||A test file with seeded bad rows reports every issue, and clean rows produce none.",
+"Bulk insert issues into validation_issues. Add GET /uploads/{id}/status and /issues with pagination and a filter by rule. Include summary counts per rule.||A user can upload a bad file and fetch a paginated list of the exact problems.",
+"Store a mapping per dataset: source column → target field, with required targets (SKU, branch, quantity, price, date). Reject incomplete mappings and duplicate targets. Allow saving a mapping as a reusable template.||The mapping endpoint rejects incomplete mappings and saved templates can be reapplied.",
+"Build a whitelist of operations (rename, cast, strip, lowercase, parse date with an explicit format). Apply them with pandas, never eval. Make each operation a pure, unit-tested function.||Transformations give the expected output on test inputs and unknown operations are refused.",
+"Support only a fixed set of formulas (multiply two columns, subtract a discount). Parse a tiny safe expression format instead of using eval. This is Medium priority, so simplify it if you are behind.||quantity × unit_price works, bad references fail clearly, and no arbitrary code can run.",
+"Run the mapping and transforms on the first N rows plus whole-file validation, and return before/after side by side. Do not write to the database in this step.||The preview shows transformed rows and remaining errors, and the database is unchanged.",
+"Load branches, SKUs, and categories into dicts once, then map rows by lookup. Record unknown values as validation issues; never auto-create them. Normalise case and whitespace before matching.||Rows with an unknown SKU or branch are flagged and excluded, and valid rows get correct foreign keys.",
+"Insert valid rows in batches inside a transaction (SQLAlchemy bulk insert or COPY for speed). Record inserted, skipped, and failed counts in load_runs. Roll back a failed batch instead of half-loading.||Loading a valid file inserts the expected rows and the load run shows correct counts.",
+"Pick a stable key (source transaction ID + line number, or branch + date + SKU + receipt). Add a unique constraint and use INSERT … ON CONFLICT DO UPDATE or DO NOTHING. Track batch progress so loads can be resumed.||Uploading the same file twice leaves row counts unchanged, and a mid-load failure can be re-run safely.",
+"Write a metrics doc: is revenue net of discounts and refunds, how units and average order value are counted, date boundaries (inclusive or exclusive, timezone), and how comparison periods are chosen. Agree on it before coding queries.||docs/metrics.md defines every metric with a formula and an example, and later queries refer to it.",
+"Create a service function taking branch scope and a date range, using SQL aggregates (SUM, COUNT) instead of Python loops. Return revenue, units, orders, and average order value. Validate start ≤ end.||The endpoint matches hand-calculated totals on seed data and respects branch permissions.",
+"Group sales by product and category, order by revenue or units, and accept limit and date filters. Join once and index product_id and category_id. Return rank, name, revenue, and units.||Top-N lists match expected results and handle ties and empty ranges.",
+"Return per-branch totals and time-bucketed trends (day, week, month) using date_trunc. Fill missing periods with zeros so charts don’t skip. Keep timezone handling consistent.||Trend output covers the whole range and branch comparison respects user access.",
+"Compute sales velocity (units per day over a window) and compare it with current stock to get days of cover. Put thresholds in config. Return an explicit message when inventory data is missing.||Test data flags the right overstock and stockout-risk items, and missing data is handled without errors.",
+"Implement the remaining questions from your list of 10: weekday trend, best sellers by branch, and period-over-period change. Reuse earlier service functions and use a safe divide-by-zero rule for percentage change.||All 10 business questions have a tested function or endpoint, listed in docs/.",
+"Build a small fixed dataset whose totals are easy to verify by hand and write the expected values into tests. Cover refunds, discounts, empty ranges, and branch scoping. Fix any query that disagrees before moving on.||Every analytics endpoint has at least one assertion against a hand-calculated value.",
+"List the 10 supported questions, their parameters (date range, branch, limit), and the JSON response shape (answer, data, metric definitions, warnings). Define the reply for unsupported or ambiguous questions.||docs/ai-contract.md exists with an example request and response for each intent.",
+"Wrap the provider SDK in one client class, read the key from env, set timeouts and limited retries, and convert provider errors into your own exception type. Don’t log sensitive prompts.||A test call returns a response, and a bad key or timeout returns a clean error, not a stack trace.",
+"Prompt the LLM to return strict JSON {intent, params} from your fixed intent list, then validate it with Pydantic. Reject anything outside the list. Add a few examples per intent in the prompt.||Test questions map to the right intent and parameters, and nonsense input maps to unsupported.",
+"Write one function per intent that calls your Day 30–34 services with validated parameters only. The LLM never writes SQL. Keep a registry mapping intent → handler.||Each of the 10 intents runs through its template and returns real data.",
+"Use a read-only database role on this path, take branch filters from the logged-in user (not the LLM output), cap rows, and set statement_timeout. Validate every parameter before use.||A forged branch parameter or write attempt is blocked, and a test proves the read-only role cannot modify data.",
+"Send the LLM only the query result and the metric definitions. Instruct it to use only the given numbers and to say when data is missing. Optionally check that each figure in the answer appears in the data.||Answers cite correct figures, and with empty data the reply says so instead of inventing numbers.",
+"Make a table of test questions with the expected intent and result. Include typos, missing dates, other-branch requests, prompt-injection attempts, and unsupported questions. Automate it, mocking the LLM where possible.||All 10 questions pass, and unauthorized and unsupported cases fail safely with clear messages.",
+"Create the app with Vite + React (TypeScript if you are comfortable). Add React Router, an API wrapper with the base URL from env, and a layout with header and sidebar. Enable CORS on FastAPI for the dev origin only.||The frontend runs, calls /health successfully, and the base layout renders.",
+"Build a login form that calls /login, keep the token in memory or sessionStorage, attach it to requests, and add a ProtectedRoute plus role-based menu items. On a 401, redirect to login.||Users can log in, see menus for their role, and are redirected when the token expires.",
+"Use a file input with type and size checks, upload via FormData, show progress with onUploadProgress, and display the status from the backend. Show friendly errors.||A CSV or Excel file uploads from the UI and its status updates on screen.",
+"Show columns and sample rows in a table, a summary of issues by rule, and a paginated error list with row and column. Use clear colors for errors vs warnings. A plain table is enough.||A bad file shows exactly which rows and columns need fixing.",
+"Create a step flow: map columns → choose transformations → preview → confirm load → track status (poll the load run). Disable Confirm while errors remain unless the user explicitly excludes bad rows.||A user can load a file end to end from the UI and see inserted and skipped counts.",
+"Use one charting library (e.g. Recharts). Show KPI cards, a trend line, top products and categories, and inventory alerts. Add date range and branch filters, with loading and empty states.||Dashboard numbers match the API results and the filters update every widget.",
+"Add a question box, example-question chips, loading and error states, answer text, and a table or chart of the supporting data. Show the ‘unsupported question’ message nicely. Then run the full flow: login → upload → load → ask.||A user can ask a question and see a grounded answer with its data in the UI.",
+"Test pure logic first: validators, transformations, metric calculations, and permission helpers. Use pytest fixtures, parametrize edge cases, and measure coverage (aim for strong coverage on services, not 100% everywhere).||Unit tests pass reliably and the critical modules show good coverage.",
+"Test through the API with a test DB: login → upload → map → load → re-upload (no duplicates) → analytics → AI endpoint (mock the LLM). Reset the database between tests.||The full backend flow passes in one run, and fails if duplicates or permission leaks appear.",
+"Work through a checklist: upload type and size limits, path traversal, secrets not in Git, CORS, rate limiting on login, SQL injection, verbose errors, PII or tokens in logs, and a dependency audit (pip-audit).||Every item is checked off in docs/security.md, and issues found are fixed or logged as known risks.",
+"Write a multi-stage Dockerfile for the API, one for the frontend (build, then serve with nginx), and a docker-compose.yml with Postgres, a volume, and env files. Run migrations on start or through a command.||docker compose up starts the whole stack from a clean machine and the app works.",
+"Add a GitHub Actions workflow: install, lint, run tests with a Postgres service, and build the images. Deploy to a host (Render, Railway, Fly.io, or a VPS), set secrets in the platform, and run migrations on deploy.||Pushing to main runs the tests, and the deployed URL serves the app with a working database.",
+"Add structured logs with request IDs and /health and /ready endpoints. Document setup, env vars, API usage, and an architecture diagram (Mermaid works in a README).||A new developer can set up the project from the README alone.",
+"Walk through the full flow on fresh sample data and record a short demo. Fix only release-blocking bugs. In the README, list limitations and future ideas, add screenshots, and prepare a two-minute explanation of your design decisions.||The acceptance checklist passes, the demo is recorded, and the README is portfolio-ready."
+];
+var T=[],n=0;
+W.forEach(function(w,wi){w[1].forEach(function(t){n++;T.push({id:n,w:wi,t:t[0],d:t[1],s:t[2],g:G[n-1]||""})})});
+var S={};
+try{S=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){S={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function col(id){return S[id]||0}
+function mv(id,c){c=Math.max(0,Math.min(4,c));if(c===0)delete S[id];else S[id]=c;save();render()}
+var wf=document.getElementById("wf"),sf=document.getElementById("sf");
+wf.innerHTML='<option value="">All weeks</option>'+W.map(function(w,i){return '<option value="'+i+'">'+w[0].split(" — ")[0]+'</option>'}).join("");
+wf.onchange=sf.onchange=function(){render()};
+var rb=document.getElementById("reset"),armed=false;
+rb.onclick=function(){if(!armed){armed=true;rb.textContent="Click again to confirm";setTimeout(function(){armed=false;rb.textContent="Reset board"},3000);return}S={};save();armed=false;rb.textContent="Reset board";render()};
+function render(){
+var f=wf.value,v=sf.value,done=0,prog=0;
+T.forEach(function(t){if(col(t.id)===4)done++;if(col(t.id)===2)prog++});
+document.getElementById("fill").style.width=(done/56*100)+"%";
+var wd=W.map(function(w,i){var d=T.filter(function(t){return t.w===i&&col(t.id)===4}).length;return "W"+(i+1)+": <b>"+d+"/7</b>"}).join(" · ");
+document.getElementById("stats").innerHTML="<span><b>"+done+"/56</b> done ("+Math.round(done/56*100)+"%)</span><span>In progress: <b>"+prog+"</b>"+(prog>1?" — try to keep just one":"")+"</span><span>"+wd+"</span>";
+var b=document.getElementById("board");b.innerHTML="";
+COLS.forEach(function(name,ci){
+var items=T.filter(function(t){return col(t.id)===ci&&(f===""||t.w==f)&&(v===""||t.s===v)});
+var c=document.createElement("section");c.className="col";
+c.innerHTML="<h2>"+name+"<span>"+items.length+"</span></h2>";
+c.ondragover=function(e){e.preventDefault();c.classList.add("over")};
+c.ondragleave=function(){c.classList.remove("over")};
+c.ondrop=function(e){e.preventDefault();c.classList.remove("over");var id=+e.dataTransfer.getData("text");if(id)mv(id,ci)};
+var last=-1;
+items.forEach(function(t){
+if(t.w!==last){last=t.w;var h=document.createElement("div");h.className="wk";h.textContent=W[t.w][0].split(" — ")[0];c.appendChild(h)}
+var k=document.createElement("div");k.className="card "+t.s+(ci===4?" done":"");k.draggable=true;
+k.ondragstart=function(e){e.dataTransfer.setData("text",t.id)};
+k.innerHTML='<div class="top"><span>Day '+t.id+'</span><span class="sev '+t.s+'">'+SEV[t.s]+'</span></div><div class="t"></div><div class="d"></div><details class="g"><summary>Guidance</summary><div class="gb"></div></details><div class="mv"></div>';
+k.querySelector(".t").textContent=t.t;k.querySelector(".d").textContent=t.d;var p=t.g.split("||"),gb=k.querySelector(".gb");["How: ","Done when: "].forEach(function(l,i){if(p[i]){var q=document.createElement("div"),bb=document.createElement("b");bb.textContent=l;q.appendChild(bb);q.appendChild(document.createTextNode(p[i].trim()));gb.appendChild(q)}});
+var m=k.querySelector(".mv");
+if(ci>0){var l=document.createElement("button");l.textContent="←";l.title="Move back";l.onclick=function(){mv(t.id,ci-1)};m.appendChild(l)}
+if(ci<4){var r=document.createElement("button");r.textContent="→";r.title="Move forward";r.onclick=function(){mv(t.id,ci+1)};m.appendChild(r)}
+if(ci<3){var d=document.createElement("button");d.textContent="✓ Done";d.onclick=function(){mv(t.id,4)};m.appendChild(d)}
+c.appendChild(k)});
+b.appendChild(c)})}
+render();
+</script>
+</body>
+</html>
