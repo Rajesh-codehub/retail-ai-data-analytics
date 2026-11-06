@@ -13,10 +13,10 @@ class Transaction(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     source_transaction_id: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     
-    branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), nullable=False)
+    branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True, nullable=False)
     customer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True)
     
-    transaction_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    transaction_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="completed", nullable=False)
     payment_method: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     currency: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)

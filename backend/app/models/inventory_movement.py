@@ -43,6 +43,7 @@ class InventoryMovement(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False,
+        index=True
     )
     notes: Mapped[Optional[str]] = mapped_column(
         Text,

@@ -14,7 +14,7 @@ class Product(Base):
     sku: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     product_name: Mapped[str] = mapped_column(String(150), nullable=False)
     
-    category_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
+    category_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("categories.id"), index=True, nullable=False)
     unit_of_measure: Mapped[str] = mapped_column(String(20), default="pcs", nullable=False)
     default_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     

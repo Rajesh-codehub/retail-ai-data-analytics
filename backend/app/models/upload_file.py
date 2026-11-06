@@ -9,14 +9,14 @@ class UploadFile(Base):
     __tablename__ = "upload_files"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    uploaded_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    uploaded_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), index=True, nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)  # csv, xlsx, etc.
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)  # in bytes
     status: Mapped[str] = mapped_column(String(50), default="uploaded", nullable=False)  # uploaded, validating, validated, failed, loaded
     
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True, nullable=False)
 
     # Relationships
     user = relationship("User", backref="uploaded_files")

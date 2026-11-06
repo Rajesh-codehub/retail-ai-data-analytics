@@ -9,7 +9,7 @@ class ValidationIssue(Base):
     __tablename__ = "validation_issues"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    upload_file_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("upload_files.id"), nullable=False, index=True)
+    upload_file_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("upload_files.id"),nullable=False, index=True)
     row_number: Mapped[int] = mapped_column(Integer, nullable=False)
     column_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     issue_code: Mapped[str] = mapped_column(String(50), nullable=False)
