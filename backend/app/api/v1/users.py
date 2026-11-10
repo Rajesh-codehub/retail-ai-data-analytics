@@ -9,6 +9,7 @@ from app.db.database import get_db
 from app.models import User
 from app.schemas.auth import UserCreate, UserResponse, UserUpdate
 from app.services import user_service
+from app.core.permissions import require_role
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -32,7 +33,7 @@ def get_admin_user(
 def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    admin: User = Depends(require_role("admin")),
 ):
     try:
         return user_service.create_user(db, user_data)
@@ -54,7 +55,7 @@ def list_users(
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    admin: User = Depends(require_role("admin")),
 ):
     if skip < 0 or limit < 1 or limit > 100:
         raise HTTPException(
@@ -69,7 +70,7 @@ def list_users(
 def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    admin: User = Depends(require_role("admin")),
 ):
     user = user_service.get_user_by_id(db, user_id)
 
@@ -84,7 +85,7 @@ def update_user(
     user_id: UUID,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    admin: User = Depends(require_role("admin")),
 ):
     user = user_service.get_user_by_id(db, user_id)
 
@@ -105,7 +106,7 @@ def update_user(
 def deactivate_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    admin: User = Depends(require_role("admin")),
 ):
     user = user_service.get_user_by_id(db, user_id)
 
