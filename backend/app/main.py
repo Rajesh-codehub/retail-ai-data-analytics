@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 
-app = FastAPI(
-    title="Retail AI Data Analytics",
-    version="0.1.0",
-)
+from app.api.v1.auth import router as auth_router
+
+app = FastAPI(title="Retail AI Data Analytics Platform")
+
+app.include_router(auth_router, prefix="/api/v1")
+
 
 
 @app.get("/health")

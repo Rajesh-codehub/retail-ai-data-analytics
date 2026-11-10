@@ -3,6 +3,11 @@ from datetime import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 class UserCreate(BaseModel):
     employee_id: str = Field(..., min_length=1, description="Unique employee identifier")
     name: str = Field(..., min_length=1, description="Full name of the user")
