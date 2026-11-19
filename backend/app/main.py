@@ -8,6 +8,17 @@ from app.api.v1.auth import router as auth_router
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
+from app.api.v1.uploads import router as upload_router
+import logging
+
+
+
+
+# Configure global logging to display INFO level messages in the terminal
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 
 
@@ -15,6 +26,7 @@ app = FastAPI(title="Retail AI Data Analytics Platform")
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
+app.include_router(upload_router, prefix = "/api/v1")
 
 
 
