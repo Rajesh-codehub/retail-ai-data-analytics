@@ -11,6 +11,7 @@ from app.schemas.upload import (
     UploadCreateResponse,
     UploadDetailResponse,
     UploadListResponse,
+    UploadPreviewResponse,
 )
 from app.services import upload_service
 
@@ -84,4 +85,23 @@ def get_upload_details(
         db=db,
         upload_id=upload_id,
         current_user=current_user,
+    )
+
+
+@router.get(
+    "/{upload_id}/preview",
+    response_model=UploadPreviewResponse,
+    status_code=status.HTTP_200_OK,
+)
+def preview_upload(
+    upload_id: UUID,
+    rows: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return upload_service.get_upload_preview(
+        db=db,
+        upload_id=upload_id,
+        current_user=current_user,
+        rows=rows,
     )

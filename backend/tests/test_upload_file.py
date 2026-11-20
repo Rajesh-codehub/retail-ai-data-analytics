@@ -593,3 +593,199 @@ def test_get_upload_file_by_id_not_found_raises_404(db_session):
         upload_service.get_upload_file_by_id(db_session, uuid.uuid4(), admin)
     assert exc.value.status_code == 404
     assert "Upload not found" in exc.value.detail
+
+
+# ---------------------------------------------------------------------------
+# 5. get_upload_preview Tests
+# ---------------------------------------------------------------------------
+
+
+def test_preview_csv_success(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = b"col1,col2,col3\n1,2,3\n4,5,6\n7,8,9\n10,11,12\n13,14,15\n"
+    upload = make_upload_file("preview.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    preview = upload_service.get_upload_preview(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+        rows=3,
+    )
+
+    assert preview["id"] == record.id
+    assert preview["original_filename"] == "preview.csv"
+    assert preview["file_type"] == "csv"
+    assert preview["columns"] == ["col1", "col2", "col3"]
+    assert preview["total_rows"] == 5
+    assert preview["preview_rows"] == 3
+    assert preview["data"] == [
+        {"col1": "1", "col2": "2", "col3": "3"},
+        {"col1": "4", "col2": "5", "col3": "6"},
+        {"col1": "7", "col2": "8", "col3": "9"},
+    ]
+
+
+def test_preview_excel_success(db_session):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    upload = _make_excel_file("preview.xlsx", has_data=True)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    preview = upload_service.get_upload_preview(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+        rows=2,
+    )
+
+    assert preview["id"] == record.id
+    assert preview["original_filename"] == "preview.xlsx"
+    assert preview["file_type"] == "xlsx"
+    assert preview["columns"] == ["col1", "col2"]
+    assert preview["total_rows"] == 2
+    assert preview["preview_rows"] == 2
+    assert preview["data"] == [
+        {"col1": 1, "col2": 2},
+        {"col1": 3, "col2": 4},
+    ]
+
+
+def test_preview_default_rows(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = b"col1,col2\n" + b"\n".join(b"a,b" for _ in range(20)) + b"\n"
+    upload = make_upload_file("many_rows.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    # Default rows = 10
+    preview = upload_service.get_upload_preview(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+    )
+
+    assert preview["total_rows"] == 20
+    assert preview["preview_rows"] == 10
+    assert len(preview["data"]) == 10
+
+
+def test_preview_rows_clamped_to_100(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = b"col1,col2\n" + b"\n".join(b"a,b" for _ in range(200)) + b"\n"
+    upload = make_upload_file("many_rows.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    preview = upload_service.get_upload_preview(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+        rows=200,  # should be clamped to 100
+    )
+
+    assert preview["preview_rows"] == 100
+    assert len(preview["data"]) == 100
+
+
+def test_preview_access_control(db_session):
+    branch_a = uuid.uuid4()
+    branch_b = uuid.uuid4()
+
+    admin = make_user(role="admin", branch_id=branch_a)
+    mgr_a = make_user(role="manager", branch_id=branch_a)
+    emp_a1 = make_user(role="employee", branch_id=branch_a)
+    emp_a2 = make_user(role="employee", branch_id=branch_a)
+
+    seed_branch_in_db(db_session, branch_id=branch_a)
+    seed_branch_in_db(db_session, branch_id=branch_b)
+
+    # Seed emp_a1 as a DB user so FK constraint on uploaded_by is satisfied
+    seed_user_in_db(
+        db_session,
+        user_id=emp_a1.id,
+        role=emp_a1.role,
+        branch_id=emp_a1.branch_id,
+    )
+
+    payload = b"col1,col2\n1,2\n3,4\n"
+    upload = make_upload_file("preview.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=emp_a1,
+        dataset_type="sales",
+        branch_id=branch_a,
+    )
+
+    # Admin can preview
+    preview = upload_service.get_upload_preview(
+        db=db_session, upload_id=record.id, current_user=admin
+    )
+    assert preview["id"] == record.id
+
+    # Manager with same branch can preview
+    preview = upload_service.get_upload_preview(
+        db=db_session, upload_id=record.id, current_user=mgr_a
+    )
+    assert preview["id"] == record.id
+
+    # Owner can preview
+    preview = upload_service.get_upload_preview(
+        db=db_session, upload_id=record.id, current_user=emp_a1
+    )
+    assert preview["id"] == record.id
+
+    # Employee in same branch but different user cannot preview
+    with pytest.raises(HTTPException) as exc:
+        upload_service.get_upload_preview(
+            db=db_session, upload_id=record.id, current_user=emp_a2
+        )
+    assert exc.value.status_code == 403
+
+
+def test_preview_not_found_raises_404(db_session):
+    admin = make_user(role="admin")
+    with pytest.raises(HTTPException) as exc:
+        upload_service.get_upload_preview(
+            db=db_session, upload_id=uuid.uuid4(), current_user=admin
+        )
+    assert exc.value.status_code == 404
+    assert "Upload not found" in exc.value.detail
