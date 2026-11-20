@@ -249,3 +249,98 @@ def get_upload_file_by_id(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     return record
+
+
+def get_upload_preview(
+    db: Session,
+    upload_id: UUID,
+    current_user: User,
+    rows: int = 10,
+) -> dict:
+    """Get a preview of an uploaded file (first N rows).
+
+    Raises HTTPException if file not found, access denied, or unreadable.
+    """
+    # Reuse the same access control as get_upload_file_by_id
+    record = get_upload_file_by_id(db, upload_id, current_user)
+
+    file_path = Path(record.storage_path)
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stored file not found on disk",
+        )
+
+    ext = record.file_type.lower()
+    preview_rows = min(max(rows, 1), 100)  # clamp between 1 and 100
+
+    try:
+        if ext == "csv":
+            import csv
+
+            with file_path.open("r", encoding="utf-8", errors="replace") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if header is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="CSV file is empty — no header row",
+                    )
+                data_rows = []
+                for i, row in enumerate(reader):
+                    if i >= preview_rows:
+                        break
+                    data_rows.append(dict(zip(header, row)))
+
+            # Count total rows for context
+            total_rows = 0
+            with file_path.open("r", encoding="utf-8", errors="replace") as f:
+                reader = csv.reader(f)
+                next(reader, None)  # skip header
+                for _ in reader:
+                    total_rows += 1
+
+            return {
+                "id": record.id,
+                "original_filename": record.original_filename,
+                "file_type": record.file_type,
+                "columns": header,
+                "total_rows": total_rows,
+                "preview_rows": len(data_rows),
+                "data": data_rows,
+            }
+
+        elif ext == "xlsx":
+            import pandas as pd
+
+            df = pd.read_excel(file_path, engine="openpyxl", nrows=preview_rows)
+            columns = df.columns.tolist()
+            data_rows = df.to_dict(orient="records")
+
+            # Count total rows
+            df_full = pd.read_excel(file_path, engine="openpyxl")
+            total_rows = len(df_full)
+
+            return {
+                "id": record.id,
+                "original_filename": record.original_filename,
+                "file_type": record.file_type,
+                "columns": columns,
+                "total_rows": total_rows,
+                "preview_rows": len(data_rows),
+                "data": data_rows,
+            }
+
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Preview not supported for file type '{ext}'",
+            )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to preview file: {exc}",
+        ) from exc

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -33,3 +33,13 @@ class UploadDetailResponse(BaseModel):
 class UploadListResponse(BaseModel):
     items: List[UploadDetailResponse]
     total: int
+
+
+class UploadPreviewResponse(BaseModel):
+    id: UUID
+    original_filename: str
+    file_type: str
+    columns: List[str]
+    total_rows: Optional[int] = None
+    preview_rows: int
+    data: List[dict[str, Any]]
