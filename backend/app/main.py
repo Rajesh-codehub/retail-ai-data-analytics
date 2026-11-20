@@ -5,8 +5,6 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 
 from app.api.v1.auth import router as auth_router
-
-from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
 from app.api.v1.uploads import router as upload_router
 import logging
