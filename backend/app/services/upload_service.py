@@ -10,12 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.models.upload_file import UploadFile
 from app.models.user import User
+from app.core.config import UPLOAD_DIR, MAX_FILE_SIZE, ALLOWED_EXTENSIONS, CHUNK_SIZE
 
-UPLOAD_DIR = Path("uploads")
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-CHUNK_SIZE = 1024 * 64  # 64 KB
-ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
-ALLOWED_DATASETS = {"sales", "inventory"}
+
+
 
 
 def _resolve_branch_id(current_user: User, requested_branch_id: Optional[UUID]) -> Optional[UUID]:
@@ -34,6 +32,58 @@ def _resolve_branch_id(current_user: User, requested_branch_id: Optional[UUID]) 
             detail="You are not permitted to upload data for another branch",
         )
     return current_user.branch_id
+
+
+def _validate_csv_file(file_path: Path) -> int:
+    """Validate a CSV file and return the number of data rows.
+
+    Raises HTTPException if the file is empty or unreadable.
+    """
+    try:
+        with file_path.open("r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unable to read CSV file: {exc}",
+        ) from exc
+
+    if len(lines) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file is empty — no data rows found (only header or nothing)",
+        )
+
+    return len(lines) - 1  # exclude header
+
+
+def _validate_excel_file(file_path: Path) -> int:
+    """Validate an Excel (.xlsx) file and return the number of data rows.
+
+    Raises HTTPException if the file is empty, unreadable, or has no sheets with data.
+    """
+    try:
+        import pandas as pd
+
+        df = pd.read_excel(file_path, engine="openpyxl")
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Excel support not available — install openpyxl and pandas",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unable to read Excel file: {exc}",
+        ) from exc
+
+    if df.empty or len(df) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Excel file is empty — no data rows found",
+        )
+
+    return len(df)
 
 
 def save_upload_file(
@@ -59,11 +109,11 @@ def save_upload_file(
     normalized_dataset: Optional[str] = None
     if dataset_type is not None:
         normalized_dataset = dataset_type.strip().lower()
-        if normalized_dataset not in ALLOWED_DATASETS:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid dataset_type. Must be 'sales' or 'inventory'.",
-            )
+        # if normalized_dataset not in ALLOWED_DATASETS:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Invalid dataset_type. Must be 'sales' or 'inventory'.",
+        #     )
 
     resolved_branch_id = _resolve_branch_id(current_user, branch_id)
 
@@ -94,6 +144,14 @@ def save_upload_file(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded file is empty",
             )
+
+        # Validate file content based on type
+        if ext == ".csv":
+            row_count = _validate_csv_file(destination)
+        elif ext == ".xlsx":
+            row_count = _validate_excel_file(destination)
+        else:
+            row_count = 0
 
         record = UploadFile(
             uploaded_by=current_user.id,
