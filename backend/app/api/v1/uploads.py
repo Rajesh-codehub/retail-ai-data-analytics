@@ -14,6 +14,7 @@ from app.schemas.upload import (
     UploadPreviewResponse,
 )
 from app.services import upload_service
+from app.services import validation_service
 
 router = APIRouter(prefix="/api/v1/uploads", tags=["Uploads"])
 
@@ -104,4 +105,21 @@ def preview_upload(
         upload_id=upload_id,
         current_user=current_user,
         rows=rows,
+    )
+
+
+@router.post(
+    "/{upload_id}/validate",
+    status_code=status.HTTP_200_OK,
+)
+def validate_upload(
+    upload_id: UUID,
+    dataset_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return validation_service.validate_upload_file(
+        db=db,
+        upload_id=upload_id,
+        dataset_type=dataset_type,
     )
