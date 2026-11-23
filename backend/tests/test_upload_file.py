@@ -20,6 +20,7 @@ from app.models.user import User
 from app.models.branch import Branch
 import app.services.upload_service as upload_service
 import app.services.validation_service as validation_service
+import app.services.data_quality_service as data_quality_service
 
 
 # ---------------------------------------------------------------------------
@@ -943,6 +944,131 @@ def test_validate_upload_not_found(db_session):
     admin = make_user(role="admin")
     with pytest.raises(HTTPException) as exc:
         validation_service.validate_upload_file(
+            db=db_session,
+            upload_id=uuid.uuid4(),
+        )
+    assert exc.value.status_code == 404
+    assert "Upload not found" in exc.value.detail
+
+
+# ---------------------------------------------------------------------------
+# 7. profile_upload_file Tests
+# ---------------------------------------------------------------------------
+
+
+def test_profile_csv_numeric_and_categorical(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = (
+        b"transaction_id,branch_id,product_id,quantity,unit_price,payment_method\n"
+        b"TXN-001,B1,P1,2,100.00,upi\n"
+        b"TXN-002,B1,P2,1,50.00,cash\n"
+        b"TXN-003,B2,P1,3,75.00,upi\n"
+        b"TXN-004,B2,P3,,25.00,cash\n"
+    )
+    upload = make_upload_file("sales.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    profile = data_quality_service.profile_upload_file(
+        db=db_session,
+        upload_id=record.id,
+    )
+
+    assert profile["upload_id"] == str(record.id)
+    assert profile["original_filename"] == "sales.csv"
+    assert profile["file_type"] == "csv"
+    assert profile["total_rows"] == 4
+    assert profile["total_columns"] == 6
+
+    col_names = [c["name"] for c in profile["columns"]]
+    assert "transaction_id" in col_names
+    assert "quantity" in col_names
+    assert "unit_price" in col_names
+    assert "payment_method" in col_names
+
+    quantity_col = next(c for c in profile["columns"] if c["name"] == "quantity")
+    assert quantity_col["data_type"] == "numeric"
+    assert quantity_col["null_count"] == 1  # TXN-004 has empty quantity
+    assert quantity_col["null_rate"] == 0.25
+    assert quantity_col["distinct_count"] == 3  # 2, 1, 3
+    assert quantity_col["min"] == 1.0
+    assert quantity_col["max"] == 3.0
+    assert quantity_col["avg"] == 2.0
+
+    payment_col = next(c for c in profile["columns"] if c["name"] == "payment_method")
+    assert payment_col["data_type"] == "categorical"
+    assert payment_col["null_count"] == 0
+    assert len(payment_col["top_values"]) >= 1
+
+
+def test_profile_excel_file(db_session):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    upload = _make_excel_file("sales.xlsx", has_data=True)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    profile = data_quality_service.profile_upload_file(
+        db=db_session,
+        upload_id=record.id,
+    )
+
+    assert profile["file_type"] == "xlsx"
+    assert profile["total_rows"] == 2
+    assert len(profile["columns"]) == 2
+
+
+def test_profile_null_rate_calculation(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = b"col1,col2,col3\n1,,3\n,2,\n4,5,\n"
+    upload = make_upload_file("nulls.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    profile = data_quality_service.profile_upload_file(
+        db=db_session,
+        upload_id=record.id,
+    )
+
+    col1 = next(c for c in profile["columns"] if c["name"] == "col1")
+    assert col1["null_count"] == 1
+    assert col1["null_rate"] == round(1 / 3, 4)
+
+    col2 = next(c for c in profile["columns"] if c["name"] == "col2")
+    assert col2["null_count"] == 1
+    assert col2["null_rate"] == round(1 / 3, 4)
+
+
+def test_profile_upload_not_found(db_session):
+    admin = make_user(role="admin")
+    with pytest.raises(HTTPException) as exc:
+        data_quality_service.profile_upload_file(
             db=db_session,
             upload_id=uuid.uuid4(),
         )

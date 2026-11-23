@@ -15,6 +15,7 @@ from app.schemas.upload import (
 )
 from app.services import upload_service
 from app.services import validation_service
+from app.services import data_quality_service
 
 router = APIRouter(prefix="/api/v1/uploads", tags=["Uploads"])
 
@@ -122,4 +123,19 @@ def validate_upload(
         db=db,
         upload_id=upload_id,
         dataset_type=dataset_type,
+    )
+
+
+@router.get(
+    "/{upload_id}/profile",
+    status_code=status.HTTP_200_OK,
+)
+def profile_upload(
+    upload_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return data_quality_service.profile_upload_file(
+        db=db,
+        upload_id=upload_id,
     )
