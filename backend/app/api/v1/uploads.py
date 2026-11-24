@@ -12,6 +12,8 @@ from app.schemas.upload import (
     UploadDetailResponse,
     UploadListResponse,
     UploadPreviewResponse,
+    UploadStatusResponse,
+    ValidationIssuesResponse,
 )
 from app.services import upload_service
 from app.services import validation_service
@@ -138,4 +140,44 @@ def profile_upload(
     return data_quality_service.profile_upload_file(
         db=db,
         upload_id=upload_id,
+    )
+
+
+@router.get(
+    "/{upload_id}/status",
+    response_model=UploadStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
+def upload_status(
+    upload_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return validation_service.get_upload_validation_status(
+        db=db,
+        upload_id=upload_id,
+        current_user=current_user,
+    )
+
+
+@router.get(
+    "/{upload_id}/issues",
+    response_model=ValidationIssuesResponse,
+    status_code=status.HTTP_200_OK,
+)
+def upload_issues(
+    upload_id: UUID,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    issue_code: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return validation_service.get_upload_validation_issues(
+        db=db,
+        upload_id=upload_id,
+        current_user=current_user,
+        skip=skip,
+        limit=limit,
+        issue_code=issue_code,
     )

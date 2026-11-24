@@ -8,16 +8,19 @@ stopping at the first error.
 import csv
 import io
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 import pandas as pd
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.upload_file import UploadFile
+from app.models.user import User
 from app.models.validation_issue import ValidationIssue
 from app.schemas.validation import ColumnSchema, DatasetSchema
+from app.services.upload_service import get_upload_file_by_id
 
 
 # ---------------------------------------------------------------------------
@@ -372,3 +375,99 @@ def _validate_excel(
                 all_issues.extend(
                     _validate_value(value, col_schema, row_num, col_name)
                 )
+
+
+# ---------------------------------------------------------------------------
+# Status and issues retrieval
+# ---------------------------------------------------------------------------
+
+def get_upload_validation_status(
+    db: Session,
+    upload_id: UUID,
+    current_user: User,
+) -> dict:
+    """Get the validation status and summary for an upload.
+
+    Reuses the same access control as get_upload_file_by_id.
+    """
+    record = get_upload_file_by_id(db, upload_id, current_user)
+
+    # Count issues by severity
+    error_count = (
+        db.query(ValidationIssue)
+        .filter(ValidationIssue.upload_file_id == upload_id)
+        .filter(ValidationIssue.severity == "error")
+        .count()
+    )
+    warning_count = (
+        db.query(ValidationIssue)
+        .filter(ValidationIssue.upload_file_id == upload_id)
+        .filter(ValidationIssue.severity == "warning")
+        .count()
+    )
+    total_issues = error_count + warning_count
+
+    return {
+        "id": record.id,
+        "original_filename": record.original_filename,
+        "file_type": record.file_type,
+        "status": record.status,
+        "error_message": record.error_message,
+        "total_issues": total_issues,
+        "error_count": error_count,
+        "warning_count": warning_count,
+        "uploaded_at": record.uploaded_at,
+    }
+
+
+def get_upload_validation_issues(
+    db: Session,
+    upload_id: UUID,
+    current_user: User,
+    skip: int = 0,
+    limit: int = 50,
+    issue_code: Optional[str] = None,
+) -> dict:
+    """Get paginated validation issues for an upload with summary counts.
+
+    Reuses the same access control as get_upload_file_by_id.
+    """
+    record = get_upload_file_by_id(db, upload_id, current_user)
+
+    query = db.query(ValidationIssue).filter(
+        ValidationIssue.upload_file_id == upload_id
+    )
+
+    if issue_code:
+        query = query.filter(ValidationIssue.issue_code == issue_code)
+
+    total = query.count()
+
+    items = (
+        query.order_by(ValidationIssue.created_at.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    # Summary counts per issue_code
+    summary_rows = (
+        db.query(
+            ValidationIssue.issue_code,
+            func.count(ValidationIssue.id).label("count"),
+        )
+        .filter(ValidationIssue.upload_file_id == upload_id)
+        .group_by(ValidationIssue.issue_code)
+        .all()
+    )
+
+    summary = [
+        {"issue_code": row.issue_code, "count": row.count}
+        for row in summary_rows
+    ]
+
+    return {
+        "items": items,
+        "total": total,
+        "summary": summary,
+    }

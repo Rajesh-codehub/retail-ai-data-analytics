@@ -1074,3 +1074,182 @@ def test_profile_upload_not_found(db_session):
         )
     assert exc.value.status_code == 404
     assert "Upload not found" in exc.value.detail
+
+
+# ---------------------------------------------------------------------------
+# 8. Validation status and issues Tests
+# ---------------------------------------------------------------------------
+
+
+def test_upload_validation_status(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = (
+        b"transaction_id,branch_id,product_id,quantity,unit_price,transaction_date,payment_method\n"
+        b"TXN-001,B1,P1,2,100.00,2026-01-15,upi\n"
+        b"TXN-002,B1,P2,-1,50.00,2026-01-16,cash\n"
+    )
+    upload = make_upload_file("sales.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    validation_service.validate_upload_file(
+        db=db_session,
+        upload_id=record.id,
+        dataset_type="sales",
+    )
+
+    status = validation_service.get_upload_validation_status(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+    )
+
+    assert status["id"] == record.id
+    assert status["original_filename"] == "sales.csv"
+    assert status["status"] == "failed"
+    assert status["total_issues"] > 0
+    assert status["error_count"] > 0
+
+
+def test_upload_validation_status_not_found(db_session):
+    admin = make_user(role="admin")
+    with pytest.raises(HTTPException) as exc:
+        validation_service.get_upload_validation_status(
+            db=db_session,
+            upload_id=uuid.uuid4(),
+            current_user=admin,
+        )
+    assert exc.value.status_code == 404
+
+
+def test_upload_validation_issues_pagination(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = (
+        b"transaction_id,branch_id,product_id,quantity,unit_price,transaction_date,payment_method\n"
+        b"TXN-001,B1,P1,-5,100.00,2026-01-15,upi\n"
+        b"TXN-002,B1,P2,10,-50.00,2026-01-16,crypto\n"
+    )
+    upload = make_upload_file("sales.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    validation_service.validate_upload_file(
+        db=db_session,
+        upload_id=record.id,
+        dataset_type="sales",
+    )
+
+    result = validation_service.get_upload_validation_issues(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+        skip=0,
+        limit=10,
+    )
+
+    assert result["total"] > 0
+    assert len(result["items"]) > 0
+    assert len(result["summary"]) > 0
+    assert "issue_code" in result["summary"][0]
+    assert "count" in result["summary"][0]
+
+
+def test_upload_validation_issues_filter_by_rule(db_session, upload_env):
+    branch_id = uuid.uuid4()
+    user = make_user(role="manager", branch_id=branch_id)
+    seed_user_in_db(db_session, user_id=user.id, role=user.role, branch_id=user.branch_id)
+    seed_branch_in_db(db_session, branch_id=branch_id)
+
+    payload = (
+        b"transaction_id,branch_id,product_id,quantity,unit_price,transaction_date,payment_method\n"
+        b"TXN-001,B1,P1,-5,100.00,2026-01-15,upi\n"
+        b"TXN-002,B1,P2,10,-50.00,2026-01-16,crypto\n"
+    )
+    upload = make_upload_file("sales.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user,
+        dataset_type="sales",
+        branch_id=branch_id,
+    )
+
+    validation_service.validate_upload_file(
+        db=db_session,
+        upload_id=record.id,
+        dataset_type="sales",
+    )
+
+    result = validation_service.get_upload_validation_issues(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user,
+        skip=0,
+        limit=10,
+        issue_code="VALUE_BELOW_MINIMUM",
+    )
+
+    assert result["total"] >= 1
+    for item in result["items"]:
+        assert item.issue_code == "VALUE_BELOW_MINIMUM"
+
+
+def test_upload_validation_issues_access_control(db_session):
+    branch_a = uuid.uuid4()
+    user_a = make_user(role="employee", branch_id=branch_a)
+    user_b = make_user(role="employee", branch_id=branch_a)
+
+    seed_branch_in_db(db_session, branch_id=branch_a)
+    seed_user_in_db(db_session, user_id=user_a.id, role=user_a.role, branch_id=user_a.branch_id)
+    seed_user_in_db(db_session, user_id=user_b.id, role=user_b.role, branch_id=user_b.branch_id)
+
+    payload = b"transaction_id,branch_id,product_id,quantity\nTXN-001,B1,P1,-5\n"
+    upload = make_upload_file("sales.csv", payload)
+    record = upload_service.save_upload_file(
+        db=db_session,
+        file=upload,
+        current_user=user_a,
+        dataset_type="sales",
+        branch_id=branch_a,
+    )
+
+    validation_service.validate_upload_file(
+        db=db_session,
+        upload_id=record.id,
+        dataset_type="sales",
+    )
+
+    # Owner can access issues
+    result = validation_service.get_upload_validation_issues(
+        db=db_session,
+        upload_id=record.id,
+        current_user=user_a,
+    )
+    assert result["total"] > 0
+
+    # Different user in same branch cannot access (employee scoping)
+    with pytest.raises(HTTPException) as exc:
+        validation_service.get_upload_validation_issues(
+            db=db_session,
+            upload_id=record.id,
+            current_user=user_b,
+        )
+    assert exc.value.status_code == 403
