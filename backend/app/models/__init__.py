@@ -1,4 +1,4 @@
-from app.models.user import User
+﻿from app.models.user import User
 from app.models.branch import Branch
 from app.models.category import Category
 from app.models.product import Product
@@ -11,6 +11,7 @@ from app.models.transformation_job import TransformationJob
 from app.models.load_run import LoadRun
 from app.models.inventory_balance import InventoryBalance
 from app.models.inventory_movement import InventoryMovement
+from app.models.column_mapping import ColumnMapping
 
 __all__ = [
     "User",
@@ -25,6 +26,6 @@ __all__ = [
     "TransformationJob",
     "LoadRun",
     "InventoryBalance",
-    "InventoryMovement"
-
+    "InventoryMovement",
+    "ColumnMapping",
 ]
