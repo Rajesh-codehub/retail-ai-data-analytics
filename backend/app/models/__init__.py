@@ -12,6 +12,7 @@ from app.models.load_run import LoadRun
 from app.models.inventory_balance import InventoryBalance
 from app.models.inventory_movement import InventoryMovement
 from app.models.column_mapping import ColumnMapping
+from app.models.transformation_operation import TransformationOperation
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "InventoryBalance",
     "InventoryMovement",
     "ColumnMapping",
+    "TransformationOperation",
 ]
