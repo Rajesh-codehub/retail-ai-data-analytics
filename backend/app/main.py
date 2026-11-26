@@ -9,6 +9,7 @@ from app.api.v1.users import router as users_router
 from app.api.v1.uploads import router as upload_router
 from app.api.v1.mappings import router as mappings_router
 from app.api.v1.transformation_operations import router as transformation_operations_router
+from app.api.v1.formulas import router as formulas_router
 import logging
 
 
@@ -29,6 +30,7 @@ app.include_router(users_router, prefix="/api/v1")
 app.include_router(upload_router, prefix = "/api/v1")
 app.include_router(mappings_router, prefix="/api/v1")
 app.include_router(transformation_operations_router, prefix="/api/v1")
+app.include_router(formulas_router, prefix="/api/v1")
 
 
 
